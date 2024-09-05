@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using NUnit.Framework;
-using RefactorThis.Persistence;
+using RefactorThis.Persistence.Model;
+using RefactorThis.Persistence.Interface;
+using RefactorThis.Persistence.Repository;
 
 namespace RefactorThis.Domain.Tests
 {
-	[TestFixture]
+    [TestFixture]
 	public class InvoicePaymentProcessorTests
 	{
 		[Test]
@@ -28,10 +30,10 @@ namespace RefactorThis.Domain.Tests
 				failureMessage = e.Message;
 			}
 
-			Assert.AreEqual( "There is no invoice matching this payment", failureMessage );
-		}
+			Assert.AreEqual( "There is no invoice matching this payment", failureMessage ); 
+        }
 
-		[Test]
+        [Test]
 		public void ProcessPayment_Should_ReturnFailureMessage_When_NoPaymentNeeded( )
 		{
 			var repo = new InvoiceRepository( );

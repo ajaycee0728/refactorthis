@@ -1,59 +1,25 @@
 using System;
 using System.Linq;
-using RefactorThis.Persistence;
+using RefactorThis.Persistence.Interface;
+using RefactorThis.Persistence.Model;
 
 namespace RefactorThis.Domain
 {
-	public class InvoiceService
+    public class InvoiceService
 	{
-		private readonly InvoiceRepository _invoiceRepository;
+        private IInvoiceRepository _invoiceRepository;
 
-		public InvoiceService( InvoiceRepository invoiceRepository )
-		{
-			_invoiceRepository = invoiceRepository;
-		}
+        public InvoiceService(IInvoiceRepository invoiceRepository)
+        {
+            _invoiceRepository = invoiceRepository;
+        }
+
         public string ProcessPayment(Payment payment)
         {
             var invoice = _invoiceRepository.GetInvoice(payment.Reference);
 
-            if (invoice == null)
-            {
-                throw new InvalidOperationException("There is no invoice matching this payment");
-            }
-
-            if (invoice.Amount == 0)
-            {
-                return HandleZeroAmountInvoice(invoice);
-            }
-
-            var totalPaid = invoice.Payments?.Sum(x => x.Amount) ?? 0;
-            var remainingAmount = invoice.Amount - invoice.AmountPaid;
-
-            if (totalPaid == invoice.Amount)
-            {
-                return "invoice was already fully paid";
-            }
-
-            if (invoice.Payments == null || !invoice.Payments.Any())
-            {
-                // This handles the initial payment scenario
-                if (payment.Amount > invoice.Amount)
-                {
-                    return "the payment is greater than the invoice amount";
-                }
-            }
-            else
-            {
-                // This handles subsequent payments
-                if (payment.Amount > remainingAmount)
-                {
-                    return "the payment is greater than the partial amount remaining";
-                }
-            }
-
-            return payment.Amount == remainingAmount
-                ? ProcessFinalPayment(invoice, payment)
-                : ProcessPartialPayment(invoice, payment);
+            return ProcessPaymentMessage(invoice, payment); 
+             
         }
 
         private string HandleZeroAmountInvoice(Invoice invoice)
@@ -93,6 +59,56 @@ namespace RefactorThis.Domain
 
             invoice.Payments.Add(payment);
             invoice.Save();
-        } 
+        }
+        
+        private string ProcessPaymentMessage(Invoice invoice, Payment payment)
+        {
+            string paymentMessage = string.Empty;
+
+            if (invoice == null)
+            {
+                throw new InvalidOperationException("There is no invoice matching this payment");
+            }
+
+            if (invoice.Amount == 0)
+            {
+                if (invoice.Payments == null || !invoice.Payments.Any())
+                {
+                    return "no payment needed";
+                }
+
+                throw new InvalidOperationException("The invoice is in an invalid state: it has an amount of 0 but it has payments.");
+            }
+
+            var totalPaid = invoice.Payments?.Sum(x => x.Amount) ?? 0;
+            var remainingAmount = invoice.Amount - invoice.AmountPaid;
+
+            if (totalPaid == invoice.Amount)
+            {
+                return "invoice was already fully paid";
+            }
+
+            if (invoice.Payments == null || !invoice.Payments.Any())
+            {
+                // Initial payment scenario
+                if (payment.Amount > invoice.Amount)
+                {
+                    return "the payment is greater than the invoice amount";
+                }
+            }
+            else
+            {
+                // Subsequent payments
+                if (payment.Amount > remainingAmount)
+                {
+                    return "the payment is greater than the partial amount remaining";
+                }
+            }
+
+            // Handle the final or partial payment processing
+            return payment.Amount == remainingAmount
+                ? ProcessFinalPayment(invoice, payment)
+                : ProcessPartialPayment(invoice, payment); 
+        }
     }
 }
